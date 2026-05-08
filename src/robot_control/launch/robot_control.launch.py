@@ -23,8 +23,8 @@ def generate_launch_description():
             'axis_linear_x': 1,
             'axis_linear_y': 0,
             'axis_angular_z': 3,
-            'scale_linear': 0.45,
-            'scale_angular': 1.3,
+            'scale_linear': 0.5,
+            'scale_angular': 1.45,
         }]
     )
 
@@ -34,8 +34,7 @@ def generate_launch_description():
         name='inference_node',
         output='screen',
         parameters=[{
-            'model_path_0406': '/root/legged-robot/src/robot_control/robot_control/model_0406.onnx',
-            'model_path_0407': '/root/legged-robot/src/robot_control/robot_control/model_0407.onnx'
+            'model_path': "/root/legged-robot/src/robot_control/robot_control/finall.onnx"
         }]
     )
 

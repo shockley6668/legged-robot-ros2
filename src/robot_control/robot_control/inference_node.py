@@ -13,16 +13,14 @@ class InferenceNode(Node):
         super().__init__('inference_node')
 
         # Parameters
-        self.declare_parameter('model_path_0406', '/root/legged-robot/src/robot_control/robot_control/model_0406.onnx')
-        self.declare_parameter('model_path_0407', '/root/legged-robot/src/robot_control/robot_control/model_0407.onnx')
-        model_path_0406 = self.get_parameter('model_path_0406').get_parameter_value().string_value
-        model_path_0407 = self.get_parameter('model_path_0407').get_parameter_value().string_value
+        self.declare_parameter('model_path', '/root/legged-robot/src/robot_control/robot_control/finall.onnx')
+        model_path = self.get_parameter('model_path').get_parameter_value().string_value
         
-        self.get_logger().info(f'Loading models from: {model_path_0406} and {model_path_0407}')
+        self.get_logger().info(f'Loading model from: {model_path}')
         
         try:
-            self.inference = TinkerRealInference(model_path_0406, model_path_0407)
-            self.get_logger().info('Models loaded successfully')
+            self.inference = TinkerRealInference(model_path)
+            self.get_logger().info('Model loaded successfully')
         except Exception as e:
             self.get_logger().error(f'Failed to load model: {e}')
             # We might want to exit or handle this, but for now we'll let it crash later if used
@@ -63,10 +61,7 @@ class InferenceNode(Node):
 
         self.a_pressed_last = False
         self.b_pressed_last = False
-        self.x_pressed_last = False
         
-        self.step_in_place = False  # Toggle for velocity=0 behavior
-
         # Subscriptions
         self.create_subscription(JointState, 'joint_states', self.joint_callback, 10)
         self.create_subscription(Imu, 'imu/data', self.imu_callback, 10)
@@ -125,13 +120,6 @@ class InferenceNode(Node):
             
         a_pressed = msg.buttons[0] == 1
         b_pressed = msg.buttons[1] == 1
-        x_pressed = msg.buttons[2] == 1
-        
-        if x_pressed and not self.x_pressed_last:
-            self.step_in_place = not self.step_in_place
-            state_str = "0407 (Stepping)" if self.step_in_place else "0406 (Stand)"
-            self.get_logger().info(f'Zero-velocity model toggled to: {state_str}')
-        self.x_pressed_last = x_pressed
         
         if a_pressed and not self.a_pressed_last:
             if self.state == self.STATE_IDLE:
@@ -155,7 +143,6 @@ class InferenceNode(Node):
                 
         self.a_pressed_last = a_pressed
         self.b_pressed_last = b_pressed
-        self.x_pressed_last = x_pressed
 
     def start_transition(self, target_pos, next_state, duration):
         self.transition_start_pos = np.copy(self.latest_joint_pos)
@@ -199,10 +186,10 @@ class InferenceNode(Node):
             self.motor_cmd_pub.publish(cmd_msg)
 
         elif self.state == self.STATE_INFERENCE:
-            # 判断是否需要强制使用踏步模型 (0407)
-            # 只要有速度指令就不为0；或者在0速度时按X键切换为踏步模式
-            has_cmd = abs(self.cmd_vx) > 0.01 or abs(self.cmd_vy) > 0.01 or abs(self.cmd_dyaw) > 0.01
-            use_step_model = has_cmd or self.step_in_place
+            # 如果有速度指令，最小速度设置为0.15
+            cmd_vx = self.cmd_vx
+            if abs(cmd_vx) > 0.01 and abs(cmd_vx) < 0.15:
+                cmd_vx = np.sign(cmd_vx) * 0.15
             
             try:
                 target_q = self.inference.get_action(
@@ -210,10 +197,9 @@ class InferenceNode(Node):
                     self.latest_imu_gyro,
                     self.latest_joint_pos,
                     self.latest_joint_vel,
-                    self.cmd_vx,
+                    cmd_vx,
                     self.cmd_vy,
-                    self.cmd_dyaw,
-                    use_step_model=use_step_model
+                    self.cmd_dyaw
                 )
                 cmd_msg.data = target_q.tolist()
                 self.motor_cmd_pub.publish(cmd_msg)

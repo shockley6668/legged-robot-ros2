@@ -4,15 +4,13 @@ from collections import deque
 import time
 
 class TinkerRealInference:
-    def __init__(self, model_path_0406, model_path_0407, clip_actions=100.0):
+    def __init__(self, model_path, clip_actions=100.0):
         """
         初始化 RDK 推理类
-        :param model_path_0406: 0406 (静止) 模型路径
-        :param model_path_0407: 0407 (踏步) 模型路径
+        :param model_path: 模型路径
         """
-        # 1. 初始化两套 ONNX Session
-        self.session_0406 = ort.InferenceSession(model_path_0406, providers=['CPUExecutionProvider'])
-        self.session_0407 = ort.InferenceSession(model_path_0407, providers=['CPUExecutionProvider'])
+        # 1. 初始化 ONNX Session
+        self.session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
     
         # 2. 核心配置参数 (必须与训练时一致)
         self.n_proprio = 39        # 本体感受维度
@@ -111,9 +109,8 @@ class TinkerRealInference:
             policy_input[0, start_off + i*39 : start_off + (i+1)*39] = self.hist_obs[i]
             
         # C. ONNX 推理
-        session = self.session_0407 if use_step_model else self.session_0406
-        ort_inputs = {session.get_inputs()[0].name: policy_input}
-        action = session.run(None, ort_inputs)[0][0] 
+        ort_inputs = {self.session.get_inputs()[0].name: policy_input}
+        action = self.session.run(None, ort_inputs)[0][0] 
         
         # D. 动作后处理
         # 1. 裁剪动作范围

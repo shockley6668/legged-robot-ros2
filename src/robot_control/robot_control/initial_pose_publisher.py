@@ -22,7 +22,7 @@ class InitialPosePublisher(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         
         # Target positions provided by user
-        self.target_pos = np.array([0.0, 0.08, 0.56, -1.12, -0.57, 0.0, -0.08, -0.56, 1.12, 0.57])
+        self.target_pos = np.array([0.0, 0.0, 0.56, -1.12, -0.57, 0.0, 0.0, -0.56, 1.12, 0.57])
         
         self.current_joint_pos = None
         self.start_joint_pos = None
